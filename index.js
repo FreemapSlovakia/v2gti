@@ -116,7 +116,12 @@ srtWriter.on('finish', function () {
           [ date.getUTCMinutes(), 1 ],
           [ Math.round(date.getUTCSeconds() * 1000 + date.getUTCMilliseconds()), 1000 ]
         ];
-        exifObj['GPS'][piexif.GPSIFD.GPSDateStamp] = `${date.getUTCFullYear()}:${date.getUTCMonth() + 1}:${date.getUTCDate()}`;
+
+        const exifDate = `${date.getUTCFullYear()}:${_00(date.getUTCMonth() + 1)}:${_00(date.getUTCDate())}`;
+        exifObj['GPS'][piexif.GPSIFD.GPSDateStamp] = exifDate;
+
+        exifObj['Exif'][piexif.ExifIFD.DateTimeOriginal] = `${exifDate} ${_00(date.getUTCHours())}:${_00(date.getUTCMinutes())}:${_00(date.getUTCSeconds())}`;
+        exifObj['Exif'][piexif.ExifIFD.SubSecTimeOriginal] = date.getUTCMilliseconds().toString();
 
         if (i > 0 && i < frame - 1) {
           const bearing1 = geolib.getRhumbLineBearing(
@@ -159,4 +164,8 @@ function degToDmsRational(degFloat) {
   const sec = Math.round(secFloat * 1000)
 
   return [[deg, 1], [min, 1], [sec, 1000]]
+}
+
+function _00(n) {
+  return ('0' + n).slice(-2);
 }
