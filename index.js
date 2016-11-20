@@ -92,7 +92,7 @@ srtWriter.on('finish', function () {
       filter: 'select',
       options: selectFilter.join('')
     })
-    .output('tmp%04d.jpg')
+    .output(path.join(outDir, 'tmp%04d.jpg'))
     .outputOptions('-y', '-vsync', 'vfr', '-vframes', frame)
     // .on('start', function (commandLine) {
     //   console.log('Spawned Ffmpeg with command: ' + commandLine);
