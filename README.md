@@ -8,6 +8,8 @@ Image is extracted every 5 meters and is geotagged with:
 * GPS Date and Time stamp
 * GPS Image Direction
 
+The result is suitable for upload to [Mapillary](https://www.mapillary.com/) or [OpenStreetView](http://openstreetview.org/).
+
 # Requirements
 
 Node 6
@@ -21,10 +23,11 @@ npm install
 # Usage
 
 ```
-node . /path/to/video/file
+node . -i /path/to/video/file [-d distance] [-o output_directory]
 ```
+
+Distance defaults to 5 m. Output directory defaults to current directory.
 
 # TODO
 
-* code cleanup
-* support for external GPX
+* support for external GPX with time offset

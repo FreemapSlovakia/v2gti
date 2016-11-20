@@ -1,40 +1,44 @@
-// WARNING - code is ugly, needs some cleanup
+// WARNING - code needs some cleanup
 
-const ffmpeg = require('fluent-ffmpeg');
-const stream = require('stream');
-const geolib = require('geolib');
 const fs = require('fs');
+const path = require('path');
+const stream = require('stream');
+const ffmpeg = require('fluent-ffmpeg');
+const geolib = require('geolib');
 const parser = require('subtitles-parser');
 const piexif = require('piexifjs');
+const parseArgs = require('minimist');
 
-const re = /\}A,(\d+),(\d+\.\d+),([+-]?\d\d)(\d+\.\d+),(N),([+-]?\d\d\d)(\d+\.\d+),(E),([+-]?\d+.\d+),([+-]?\d+\.\d+),([+-]?\d+\.\d+),([+-]?\d+\.\d+);/;
+const argv = parseArgs(process.argv.slice(2));
 
-const w = new stream.Writable();
+const input = argv.i || argv.input;
+const distance = argv.d || argv.distance || 5;
+const outDir = argv.o || argv.outputDirectory || '.';
+
+if (!input) {
+  console.error('Usage: -i /path/to/video [-d distance] [-o output_directory]');
+  process.exit(1);
+}
 
 const chunks = [];
-
-const input = process.argv[2];
-
-w._write = function (chunk, encoding, done) {
+const srtWriter = new stream.Writable();
+srtWriter._write = function (chunk, encoding, done) {
   chunks.push(chunk.toString());
   done();
 };
 
-let lat, lon, time, tt;
+srtWriter.on('finish', function () {
+  let frame = 0;
+  let lat, lon, time, tt;
 
-let dist = 0;
-let dist0 = 0;
+  let dist = 0;
+  let dist0 = 0;
 
-let i = 0;
+  const selectFilter = [];
+  const positions = [];
 
-const cmd = [];
-const positions = [];
-
-let frame = 0;
-
-w.on('finish', function () {
   parser.fromSrt(chunks.join('')).forEach(item => {
-    const m = re.exec(item.text);
+    const m = /\}A,(\d+),(\d+\.\d+),([+-]?\d\d)(\d+\.\d+),(N),([+-]?\d\d\d)(\d+\.\d+),(E),([+-]?\d+.\d+),([+-]?\d+\.\d+),([+-]?\d+\.\d+),([+-]?\d+\.\d+);/.exec(item.text);
     if (m) {
       const lat1 = (m[5] === 'N' ? 1 : -1) * (parseFloat(m[3]) + parseFloat(m[4]) / 60);
       const lon1 = (m[8] === 'E' ? 1 : -1) * (parseFloat(m[6]) + parseFloat(m[7]) / 60);
@@ -64,16 +68,13 @@ w.on('finish', function () {
           const ttR = tt + (tt1 - tt) * ratio;
 
           if (!isNaN(ttR)) {
-            if (frame) {
-              cmd.push(`+lt(prev_selected_t\\,${ttR.toFixed(2)})*gt(t\\,${ttR.toFixed(2)})`);
-            } else {
-              cmd.push(`isnan(prev_selected_t)*gt(t\\,${ttR.toFixed(2)})`);
-            }
+            selectFilter.push(frame ? `+lt(prev_selected_t\\,${ttR.toFixed(2)})`
+              : `isnan(prev_selected_t)`, `*gt(t\\,${ttR.toFixed(2)})`);
             positions.push({ lat: latR, lon: lonR, time: timeR });
             frame++;
           }
 
-          dist0 += 5;
+          dist0 += distance;
         }
 
         tt = tt1;
@@ -81,7 +82,7 @@ w.on('finish', function () {
 
       [ lat, lon, time ] = [ lat1, lon1, time1 ];
     } else {
-      console.error('IGN', item.text);
+      console.error(`No GPS data found: ${item.text}`);
     }
   });
 
@@ -89,23 +90,20 @@ w.on('finish', function () {
     .input(input)
     .complexFilter({
       filter: 'select',
-      options: cmd.join('')
+      options: selectFilter.join('')
     })
     .output('tmp%04d.jpg')
     .outputOptions('-y', '-vsync', 'vfr', '-vframes', frame)
-    .on('start', function (commandLine) {
-      console.log('Spawned Ffmpeg with command: ' + commandLine);
-    })
+    // .on('start', function (commandLine) {
+    //   console.log('Spawned Ffmpeg with command: ' + commandLine);
+    // })
     .on('end', function () {
       for (let i = 0; i < frame; i++) {
-        const tmpFilename = `tmp${('0000' + (i + 1)).slice(-4)}.jpg`;
-
+        const tmpFilename = path.join(outDir, `tmp${('0000' + (i + 1)).slice(-4)}.jpg`);
         const jpeg = fs.readFileSync(tmpFilename);
         const data = jpeg.toString('binary');
         const exifObj = piexif.load(data);
-
         const { lat, lon, time } = positions[i];
-
         const date = new Date(time);
 
         exifObj['GPS'][piexif.GPSIFD.GPSVersionID] = [2, 0, 0, 0];
@@ -113,7 +111,11 @@ w.on('finish', function () {
         exifObj['GPS'][piexif.GPSIFD.GPSLatitude] = degToDmsRational(lat);
         exifObj['GPS'][piexif.GPSIFD.GPSLongitudeRef] = lon < 0 ? 'W' : 'E';
         exifObj['GPS'][piexif.GPSIFD.GPSLongitude] = degToDmsRational(lon);
-        exifObj['GPS'][piexif.GPSIFD.GPSTimeStamp] = [ [ date.getUTCHours(), 1 ], [ date.getUTCMinutes(), 1 ], [ Math.round(date.getUTCSeconds() * 1000 + date.getUTCMilliseconds()), 1000 ] ];
+        exifObj['GPS'][piexif.GPSIFD.GPSTimeStamp] = [
+          [ date.getUTCHours(), 1 ],
+          [ date.getUTCMinutes(), 1 ],
+          [ Math.round(date.getUTCSeconds() * 1000 + date.getUTCMilliseconds()), 1000 ]
+        ];
         exifObj['GPS'][piexif.GPSIFD.GPSDateStamp] = `${date.getUTCFullYear()}:${date.getUTCMonth() + 1}:${date.getUTCDate()}`;
 
         if (i > 0 && i < frame - 1) {
@@ -136,7 +138,7 @@ w.on('finish', function () {
 
         const newData = piexif.insert(piexif.dump(exifObj), data);
         const newJpeg = new Buffer(newData, 'binary');
-        fs.writeFileSync(`img${('0000' + (i + 1)).slice(-4)}.jpg`, newJpeg);
+        fs.writeFileSync(path.join(outDir, `img${('0000' + (i + 1)).slice(-4)}.jpg`), newJpeg);
         fs.unlinkSync(tmpFilename);
       }
     })
@@ -145,16 +147,9 @@ w.on('finish', function () {
 
 ffmpeg()
   .input(input)
-  .output(w).format('srt')
+  .output(srtWriter)
+  .format('srt')
   .run();
-
-function formatTime(ms) {
-  const h = Math.floor(ms / 3600);
-  const m = Math.floor((ms - h * 3600) / 60);
-  const s = (ms - h * 3600 - m * 60).toFixed(2);
-  return `${h}:${m}:${s}`;
-}
-
 
 function degToDmsRational(degFloat) {
   const minFloat = degFloat % 1 * 60
