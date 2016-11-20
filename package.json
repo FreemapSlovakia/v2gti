@@ -17,7 +17,6 @@
     "geolib": "^2.0.22",
     "minimist": "^1.2.0",
     "piexifjs": "^1.0.0",
-    "subtitles-parser": "0.0.2",
-    "xmlbuilder": "^8.2.2"
+    "subtitles-parser": "0.0.2"
   }
 }
