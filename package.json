@@ -1,0 +1,19 @@
+{
+  "name": "v2gti",
+  "version": "0.0.1",
+  "description": "Tool for extracting geotagged images from the video",
+  "main": "index.js",
+  "author": {
+    "name": "Martin Ždila",
+    "email": "martin.zdila@freemap.sk"
+  },
+  "license": "GPL3",
+  "keywords": [ "gps", "video" ],
+  "dependencies": {
+    "fluent-ffmpeg": "^2.1.0",
+    "geolib": "^2.0.22",
+    "piexifjs": "^1.0.0",
+    "subtitles-parser": "0.0.2",
+    "xmlbuilder": "^8.2.2"
+  }
+}
