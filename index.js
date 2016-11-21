@@ -123,18 +123,18 @@ srtWriter.on('finish', function () {
         exifObj['Exif'][piexif.ExifIFD.DateTimeOriginal] = `${exifDate} ${_00(date.getUTCHours())}:${_00(date.getUTCMinutes())}:${_00(date.getUTCSeconds())}`;
         exifObj['Exif'][piexif.ExifIFD.SubSecTimeOriginal] = date.getUTCMilliseconds().toString();
 
-        if (i > 0 && i < frame - 1) {
-          const bearing1 = geolib.getRhumbLineBearing(
-            { latitude: positions[i - 1].lat, longitude: positions[i - 1].lon },
-            { latitude: lat, longitude: lon }
-          );
+        const bearing1 = i > 0 ? geolib.getRhumbLineBearing(
+          { latitude: positions[i - 1].lat, longitude: positions[i - 1].lon },
+          { latitude: lat, longitude: lon }
+        ) : null;
 
-          const bearing2 = geolib.getRhumbLineBearing(
-            { latitude: lat, longitude: lon },
-            { latitude: positions[i + 1].lat, longitude: positions[i + 1].lon }
-          );
+        const bearing2 = i < frame - 1 ? geolib.getRhumbLineBearing(
+          { latitude: lat, longitude: lon },
+          { latitude: positions[i + 1].lat, longitude: positions[i + 1].lon }
+        ) : null;
 
-          const bearing = Math.atan2((Math.sin(bearing1 / 180 * Math.PI) + Math.sin(bearing2 / 180 * Math.PI)),
+        if (bearing1 !== null && bearing2 !== null) {
+          const bearing = bearing1 === null ? bearing2 : bearing2 === null ? bearing1 : Math.atan2((Math.sin(bearing1 / 180 * Math.PI) + Math.sin(bearing2 / 180 * Math.PI)),
             (Math.cos(bearing1 / 180 * Math.PI) + Math.cos(bearing2 / 180 * Math.PI))) / Math.PI * 180;
 
           exifObj['GPS'][piexif.GPSIFD.GPSImgDirectionRef] = 'T';
