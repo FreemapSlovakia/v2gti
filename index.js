@@ -133,7 +133,7 @@ srtWriter.on('finish', function () {
           { latitude: positions[i + 1].lat, longitude: positions[i + 1].lon }
         ) : null;
 
-        if (bearing1 !== null && bearing2 !== null) {
+        if (bearing1 !== null || bearing2 !== null) {
           const bearing = bearing1 === null ? bearing2 : bearing2 === null ? bearing1 : Math.atan2((Math.sin(bearing1 / 180 * Math.PI) + Math.sin(bearing2 / 180 * Math.PI)),
             (Math.cos(bearing1 / 180 * Math.PI) + Math.cos(bearing2 / 180 * Math.PI))) / Math.PI * 180;
 
